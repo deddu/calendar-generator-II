@@ -1,11 +1,11 @@
 import csv
 from datetime import datetime, timedelta
+from PIL import Image, ImageDraw, ImageFont
+import zoneinfo
+import holidays
 
 def generate_png_calendar(year):
-    from PIL import Image, ImageDraw, ImageFont
-    from datetime import datetime
-    import holidays
-    
+    year = 2025
     
     # colors
     c_us_holiday = (179, 216, 209, 0)
@@ -13,7 +13,7 @@ def generate_png_calendar(year):
     c_weekend = (161, 224, 224, 0)
     
     # resolution settings
-    dpi = 300  # Adjust the DPI if needed (72 or 96 are usual screen, 300 for quality print)
+    dpi = 96  # Adjust the DPI if needed (72 or 96 are usual screen, 300 for quality print)
     width_mm, height_mm = 1189, 841  # A0 landscape dimensions in mm
     
     # Convert mm to pixels
@@ -29,10 +29,10 @@ def generate_png_calendar(year):
     
     # font selection. Note that you those scale to match the dpis!
     
-    fsL = 60 / 72 * dpi
-    fsM = 28 / 72 * dpi 
-    fsS = 20 / 72 * dpi
-    fsXS = 8/72 * dpi
+    fsL = int(60 / 72 * dpi)
+    fsM = int(28 / 72 * dpi)
+    fsS = int(20 / 72 * dpi)
+    fsXS = int(8/72 * dpi)
     
     f_y =ImageFont.truetype("/Users/dre/Dropbox/design/fonts/Lato/Lato-Black.ttf", fsL)
     f_m =ImageFont.truetype("/Users/dre/Dropbox/design/fonts/Lato/Lato-Regular.ttf", fsM)
@@ -42,11 +42,15 @@ def generate_png_calendar(year):
     
     
     
-    
-    
-    
     us_holidays = holidays.country_holidays('US')
     it_holidays = holidays.country_holidays('IT')
+    
+    # daylight time saving
+    us_tz= zoneinfo.ZoneInfo('America/Chicago')
+    it_tz= zoneinfo.ZoneInfo('Europe/Rome')
+    prev_us_dst= us_tz.dst(datetime(year,1,1)) 
+    prev_it_dst = it_tz.dst(datetime(year,1,1))
+    
     
     
     #Create a blank image with A0 dimensions in landscape
@@ -58,13 +62,13 @@ def generate_png_calendar(year):
     
     # day boxes
     for j in range(0,13):
-        
         for i in range(0,32):
             #date
             try :
                 # this will crash and skip the loop for non existing days :) 
                 d = datetime(year, j, i)
-        
+    
+                
                 # box
                 min_x = i*day_w_px
                 max_x = (i+1)*day_w_px
@@ -78,6 +82,8 @@ def generate_png_calendar(year):
                 dow_y = min_y + int(0.1*day_w_px)
                 h_x = min_x + int(0.1*day_w_px)
                 h_y = min_y + int(0.9*day_h_px)
+                dst_x = dow_x + int(0.35*day_w_px)
+                dst_y = dow_y
                 
                 # if sat or sun or holiday shade bg
                 if d in it_holidays:
@@ -91,7 +97,22 @@ def generate_png_calendar(year):
                 else:
                     draw.rectangle([min_x, min_y, max_x, max_y], outline="black")
         
-            
+        
+                # if the timezone changed write so
+                curr_us_dst = us_tz.dst(d) 
+                curr_it_dst = it_tz.dst(d)
+                
+                if (curr_us_dst - prev_us_dst) :
+                    change_sign ="+1" if (curr_us_dst - prev_us_dst) < timedelta(0) else "-1"
+                    draw.text((dst_x, dst_y), f"US - {change_sign}", fill="black", font=f_holiday, align='left' )
+                if (curr_it_dst - prev_it_dst) :
+                    change_sign ="+1" if (curr_it_dst - prev_it_dst) < timedelta(0) else "-1"
+                    draw.text((dst_x, dst_y), f"IT - {change_sign}", fill="black", font=f_holiday, align='left' )
+    
+                prev_us_dst = curr_us_dst 
+                prev_it_dst = curr_it_dst
+                
+                
                 
                 draw.text((dow_x, dow_y), f"{d.strftime('%a')}", fill="black", font=f_dow, align='center' )
                 draw.text((d_x, d_y), f"{d.day}", fill="black", font=f_dom, align='center')
@@ -99,14 +120,14 @@ def generate_png_calendar(year):
                 # month print
                 if i ==  1:
                   draw.text((0.4 * day_w_px, min_y), f"{d.strftime('%b')}", fill="black", font=f_m, align='left')  
-            except:
+            except ValueError:
                 pass
     draw.text((day_w_px*.4, day_h_px*0.6), f"{year}", fill="black", font=f_y, align='left')  
     
     
     # Step 4: Save the image
     image.save(f'cal-{year}-{dpi}dpi.png')
-
+    
 
 
 
