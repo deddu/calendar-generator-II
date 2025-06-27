@@ -1,0 +1,6 @@
+*.png
+*.csv
+.DS_Store
+.ipynb_checkpoints
+.mise.toml
+__marimo__

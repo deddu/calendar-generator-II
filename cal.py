@@ -5,7 +5,7 @@ import zoneinfo
 import holidays
 
 def generate_png_calendar(year):
-    year = 2025
+    year = 2026
     
     # colors
     c_us_holiday = (179, 216, 209, 0)
@@ -31,8 +31,8 @@ def generate_png_calendar(year):
     
     fsL = int(60 / 72 * dpi)
     fsM = int(28 / 72 * dpi)
-    fsS = int(20 / 72 * dpi)
-    fsXS = int(8/72 * dpi)
+    fsS = int(22 / 72 * dpi)
+    fsXS = int(12/72 * dpi)
     
     f_y =ImageFont.truetype("/Users/dre/Dropbox/design/fonts/Lato/Lato-Black.ttf", fsL)
     f_m =ImageFont.truetype("/Users/dre/Dropbox/design/fonts/Lato/Lato-Regular.ttf", fsM)
@@ -84,7 +84,26 @@ def generate_png_calendar(year):
                 h_y = min_y + int(0.9*day_h_px)
                 dst_x = dow_x + int(0.35*day_w_px)
                 dst_y = dow_y
+                            # Get text content
+                day_text = f"{d.day}"
+                dow_text = f"{d.strftime('%a')}"
                 
+                # Calculate bounding box of the text
+                bbox_day = draw.textbbox((0, 0), day_text, font=f_dom)
+                bbox_dow = draw.textbbox((0, 0), dow_text, font=f_dow)
+                
+                # Dimensions of the text
+                tw_day = bbox_day[2] - bbox_day[0]
+                th_day = bbox_day[3] - bbox_day[1]
+                
+                tw_dow = bbox_dow[2] - bbox_dow[0]
+                th_dow = bbox_dow[3] - bbox_dow[1]
+                
+                # Centered positions within the box
+                cx = (min_x + max_x) // 2
+                cy = (min_y + max_y) // 2
+
+              
                 # if sat or sun or holiday shade bg
                 if d in it_holidays:
                     draw.rectangle([min_x, min_y, max_x, max_y], outline="black", fill=c_it_holiday)
@@ -114,8 +133,8 @@ def generate_png_calendar(year):
                 
                 
                 
-                draw.text((dow_x, dow_y), f"{d.strftime('%a')}", fill="black", font=f_dow, align='center' )
-                draw.text((d_x, d_y), f"{d.day}", fill="black", font=f_dom, align='center')
+                draw.text((cx - tw_dow // 2, dow_y), dow_text, fill="black", font=f_dow)
+                draw.text((cx - tw_day // 2, d_y), day_text, fill="black", font=f_dom)
         
                 # month print
                 if i ==  1:
@@ -167,6 +186,6 @@ def write_calendar_to_csv(year, filename):
         writer.writerows(calendar_data)  # Write the calendar rows
 
 if __name__ == "__main__":
-    year=2024
+    year=2026
     write_calendar_to_csv(year, f'{year}.csv')
     generate_png_calendar(year)
