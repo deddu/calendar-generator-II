@@ -4,3 +4,4 @@
 .ipynb_checkpoints
 .mise.toml
 __marimo__
+__pycache__/

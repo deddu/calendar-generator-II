@@ -1,0 +1,29 @@
+# Calendar render config. Override per-run with --config some_other.toml.
+
+dpi = 300                          # 72/96 screen, 300 print
+page_mm = [1189, 841]              # A0 landscape, [width, height]
+
+[fonts]
+dir = "/Users/dre/Dropbox/design/fonts/Lato"
+# point sizes, scaled to dpi at render time
+sizes = { year = 60, month = 28, dom = 28, dow = 22, holiday = 12 }
+
+[color]
+# light teal to match the house decor; holiday bands overlay their own slice
+# on top (see [[country]]), so a holiday-on-weekend shows both.
+weekend = [161, 224, 224]
+
+# Each country adds a holiday layer + a DST marker. In a day cell, countries
+# stack as horizontal bands (first = top, second = bottom, ...), so two
+# holidays on the same day both show instead of one hiding the other.
+[[country]]
+code = "IT"
+timezone = "Europe/Rome"
+color = [149, 191, 191]
+prefix = ""          # text prefix before the holiday name
+
+[[country]]
+code = "US"
+timezone = "America/Chicago"
+color = [179, 216, 209]
+prefix = "US - "
