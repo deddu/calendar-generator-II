@@ -41,6 +41,47 @@ def load_config(path):
         return tomllib.load(f)
 
 
+def dashed_rectangle(draw, box, color, width, dash=28, gap=16):
+    """Draw a dashed rectangle outline; PIL has no native dashed line."""
+    x0, y0, x1, y1 = box
+    x = x0
+    while x < x1:
+        draw.line([(x, y0), (min(x + dash, x1), y0)], fill=color, width=width)
+        draw.line([(x, y1), (min(x + dash, x1), y1)], fill=color, width=width)
+        x += dash + gap
+    y = y0
+    while y < y1:
+        draw.line([(x0, y), (x0, min(y + dash, y1))], fill=color, width=width)
+        draw.line([(x1, y), (x1, min(y + dash, y1))], fill=color, width=width)
+        y += dash + gap
+
+
+def solid_frame(draw, box, color, t):
+    """Solid rectangular ring of thickness t inside `box` (4 filled bars)."""
+    x0, y0, x1, y1 = box
+    draw.rectangle([x0, y0, x1, y0 + t], fill=color)   # top
+    draw.rectangle([x0, y1 - t, x1, y1], fill=color)    # bottom
+    draw.rectangle([x0, y0, x0 + t, y1], fill=color)    # left
+    draw.rectangle([x1 - t, y0, x1, y1], fill=color)    # right
+
+
+def wrap_lines(draw, text, font, max_w):
+    """Word-wrap `text` into lines no wider than `max_w` pixels."""
+    words = text.split()
+    lines, cur = [], ""
+    for w in words:
+        trial = f"{cur} {w}".strip()
+        if draw.textlength(trial, font=font) <= max_w:
+            cur = trial
+        else:
+            if cur:
+                lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def render(cfg, start, months, prefix):
     dpi = cfg["dpi"]
     width_mm, height_mm = cfg["page_mm"]
@@ -60,7 +101,6 @@ def render(cfg, start, months, prefix):
     }
 
     countries = cfg["country"]
-    n = len(countries)
     hols = [holidays.country_holidays(c["code"]) for c in countries]
     tzs = [zoneinfo.ZoneInfo(c["timezone"]) for c in countries]
     prev_dst = [tz.dst(start) for tz in tzs]
@@ -82,32 +122,45 @@ def render(cfg, start, months, prefix):
             min_x, max_x = i * day_w, (i + 1) * day_w
             min_y, max_y = j * day_h, (j + 1) * day_h
 
-            # weekend fills the whole cell; a holiday band overlays its own slice
+            # weekend fills the cell; national holidays draw a colored inner
+            # frame inset from the cell border (solid IT, dashed US) so they
+            # read distinctly from a plain teal weekend. Holiday-on-weekend
+            # shows fill + frame.
             if d.weekday() >= 5:
                 draw.rectangle([min_x, min_y, max_x, max_y], fill=weekend)
+            draw.rectangle([min_x, min_y, max_x, max_y], outline="black", width=2)
 
-            band_h = (max_y - min_y) / n
+            ft = max(2, int(cfg["color"].get("holiday_frame", 0.04) * day_w))
+            ins = max(2, int(cfg["color"].get("holiday_inset", 0.05) * day_w))
+            fbox = [min_x + ins, min_y + ins, max_x - ins, max_y - ins]
+            for style in ("solid", "dashed"):  # solid first, dashed overlaid
+                for k, c in enumerate(countries):
+                    if c.get("border_style", "solid") != style or not hols[k].get(d):
+                        continue
+                    color = tuple(c["color"])
+                    if style == "dashed":
+                        dashed_rectangle(draw, fbox, color, ft)
+                    else:
+                        solid_frame(draw, fbox, color, ft)
+
+            tx = min_x + int(0.1 * day_w)
+            max_w = (max_x - ins - ft - 2) - tx          # fit within the frame hole
+            line_h = int(fonts["holiday"].size * 1.15)
             for k, c in enumerate(countries):
                 name = hols[k].get(d)
                 if not name:
                     continue
-                y0 = min_y + int(k * band_h)
-                y1 = min_y + int((k + 1) * band_h)
-                draw.rectangle([min_x, y0, max_x, y1], fill=tuple(c["color"]))
-                draw.text(
-                    (min_x + int(0.1 * day_w), min_y + int((k + 0.9) * band_h)),
-                    f"{c['prefix']}{name}",
-                    fill="black", font=fonts["holiday"], align="left",
-                )
-
-            draw.rectangle([min_x, min_y, max_x, max_y], outline="black")  # crisp border on top
+                ly = min_y + int((0.70 + k * 0.10) * day_h)
+                for ln in wrap_lines(draw, f"{c['prefix']}{name}", fonts["holiday"], max_w):
+                    draw.text((tx, ly), ln, fill="black", font=fonts["holiday"], align="left")
+                    ly += line_h
 
             for k, c in enumerate(countries):
                 cur = tzs[k].dst(d)
                 if cur - prev_dst[k]:
                     sign = "+1" if (cur - prev_dst[k]) < timedelta(0) else "-1"
                     draw.text(
-                        (min_x + int(0.7 * day_w), min_y + int(k * band_h + 0.08 * day_h)),
+                        (min_x + int(0.7 * day_w), min_y + int((0.22 + k * 0.06) * day_h)),
                         sign, fill="black", font=fonts["holiday"], align="left",
                     )
                 prev_dst[k] = cur
